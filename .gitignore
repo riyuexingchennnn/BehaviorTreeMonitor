@@ -1,0 +1,15 @@
+# PyInstaller 构建产物
+build/
+*.spec.bak
+
+# 前端（dist 由 build 生成，但不跟踪）
+dist/
+frontend/node_modules/
+frontend/dist/
+
+# Python / uv
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+uv.lock

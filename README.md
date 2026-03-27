@@ -1,0 +1,89 @@
+# BehaviorTree Monitor
+
+基于 BehaviorTree.CPP Groot2 协议的行为树实时监控工具。
+
+## 架构
+
+```
+Python (PySide6 + aiohttp)          Vue 3 + TypeScript
+┌─────────────────────┐           ┌──────────────────┐
+│  Qt WebEngineView   │──HTTP──►  │  前端 (dist/)     │
+│  aiohttp Server     │◄─WS───►   │  WebSocket 客户端 │
+│  ZMQ Bridge         │◄─ZMQ──►   │                  │
+└─────────────────────┘           └──────────────────┘
+                                        ▲
+                                        │ ZMQ REQ/REP
+                                        ▼
+                                  BT.CPP 执行器
+                                  (Groot2Publisher)
+```
+
+## 预览
+
+![](./sample1.png)
+
+![](./sample2.png)
+
+## 开发
+
+### 前提
+
+- [uv](https://docs.astral.sh/uv/) (Python 包管理)
+- Node.js 18+ & pnpm
+
+### 安装依赖
+
+```bash
+# Python 依赖
+uv sync
+
+# 前端依赖
+cd frontend && pnpm install
+```
+
+### 开发模式运行
+
+- 构建前端
+
+```bash
+cd frontend && pnpm build
+```
+
+
+- 启动应用
+```bash
+uv run python main.py
+```
+
+### 构建发布
+
+```bash
+# 1. 构建前端
+cd frontend && pnpm install && pnpm build && cd ..
+
+# 2. PyInstaller 打包
+uv run --group dev pyinstaller --clean --noconfirm bt_monitor.spec
+```
+
+输出文件: `dist/BehaviorTreeMonitor`
+
+## 文件结构
+
+```
+BehaviorTreeMonitor/
+├── main.py                 # 入口
+├── bt_monitor/
+│   ├── protocol.py         # BT.CPP Groot2 协议
+│   ├── server.py           # aiohttp WebSocket/ZMQ 桥接
+│   └── app.py              # Qt WebEngine 窗口
+├── frontend/               # Vue 3 + TypeScript
+│   ├── src/
+│   │   ├── App.vue
+│   │   ├── components/
+│   │   ├── composables/
+│   │   ├── stores/
+│   │   ├── types/
+│   │   └── styles/
+│   └── ...
+└── bt_monitor.spec         # PyInstaller 配置
+```
