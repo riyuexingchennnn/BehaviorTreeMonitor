@@ -24,6 +24,27 @@ Python (PySide6 + aiohttp)          Vue 3 + TypeScript
 
 ![](./sample2.png)
 
+## 文件结构
+
+```
+BehaviorTreeMonitor/
+├── main.py                 # 入口
+├── bt_monitor/
+│   ├── protocol.py         # BT.CPP Groot2 协议
+│   ├── server.py           # aiohttp WebSocket/ZMQ 桥接
+│   └── app.py              # Qt WebEngine 窗口
+├── frontend/               # Vue 3 + TypeScript
+│   ├── src/
+│   │   ├── App.vue
+│   │   ├── components/
+│   │   ├── composables/
+│   │   ├── stores/
+│   │   ├── types/
+│   │   └── styles/
+│   └── ...
+└── bt_monitor.spec         # PyInstaller 配置
+```
+
 ## 开发
 
 ### 前提
@@ -67,23 +88,9 @@ uv run --group dev pyinstaller --clean --noconfirm bt_monitor.spec
 
 输出文件: `dist/BehaviorTreeMonitor`
 
-## 文件结构
+## 下载运行
 
-```
-BehaviorTreeMonitor/
-├── main.py                 # 入口
-├── bt_monitor/
-│   ├── protocol.py         # BT.CPP Groot2 协议
-│   ├── server.py           # aiohttp WebSocket/ZMQ 桥接
-│   └── app.py              # Qt WebEngine 窗口
-├── frontend/               # Vue 3 + TypeScript
-│   ├── src/
-│   │   ├── App.vue
-│   │   ├── components/
-│   │   ├── composables/
-│   │   ├── stores/
-│   │   ├── types/
-│   │   └── styles/
-│   └── ...
-└── bt_monitor.spec         # PyInstaller 配置
-```
+如果不想自己构建，可以直接在release页面下载编译的版本。
+
+注意：ubuntu系统要首先chmod赋予执行权限再点击运行。
+
