@@ -13,7 +13,34 @@
     <text class="node-icon" x="8" y="15">{{ nodeIcon }}</text>
 
     <!-- 名称（在图标右侧区域居中） -->
-    <text class="node-title" :x="(22 + props.node.width) / 2" y="15" text-anchor="middle">{{ props.node.name }}</text>
+    <text class="node-title" :x="(22 + props.node.width - (props.node.isSubtreeContainer ? 20 : 0)) / 2" y="15" text-anchor="middle">{{ props.node.name }}</text>
+
+    <!-- 子树展开/收起按钮 -->
+    <g v-if="props.node.isSubtreeContainer" class="subtree-toggle" @click.stop="$emit('toggle-subtree', props.node)">
+      <rect
+        class="toggle-btn-bg"
+        :x="props.node.width - 20"
+        y="6"
+        width="16"
+        height="16"
+        rx="3"
+      />
+      <line
+        class="toggle-btn-icon-line"
+        :x1="props.node.width - 16"
+        y1="14"
+        :x2="props.node.width - 8"
+        y2="14"
+      />
+      <line
+        v-if="!props.node.expanded"
+        class="toggle-btn-icon-line"
+        :x1="props.node.width - 12"
+        y1="10"
+        :x2="props.node.width - 12"
+        y2="18"
+      />
+    </g>
 
     <!-- 端口列表 -->
     <g class="ports" :transform="`translate(0, ${store.NODE_BASE_HEIGHT})`">
@@ -53,6 +80,7 @@ const props = defineProps<{ node: TreeNode }>()
 defineEmits<{
   mouseenter: [event: MouseEvent, node: TreeNode]
   mouseleave: []
+  'toggle-subtree': [node: TreeNode]
 }>()
 
 const store = useTreeStore()
@@ -60,7 +88,7 @@ const store = useTreeStore()
 const height = computed(() => getNodeHeight(props.node))
 const ports = computed<NodePort[]>(() => getNodePorts(props.node))
 
-const status = computed(() => store.nodeStatuses.get(props.node.uid) ?? 'IDLE')
+const status = computed(() => store.nodeStatuses[props.node.uid] ?? 'IDLE')
 
 const statusClass = computed(() => {
   const s = status.value.toLowerCase()
@@ -114,14 +142,41 @@ const maxValueWidth = computed(() => {
 .is-subtree .node-box {
   stroke-dasharray: 4 2;
 }
-/* 控制节点名称：粉红色 */
+/* 控制节点名称和图标：粉红色 */
 .type-sequence .node-title,
+.type-sequence .node-icon,
 .type-fallback .node-title,
-.type-parallel .node-title {
+.type-fallback .node-icon,
+.type-parallel .node-title,
+.type-parallel .node-icon {
   fill: #ff79c6;
 }
-/* 装饰器节点名称：蓝绿色 */
-.type-decorator .node-title {
+/* 装饰器节点名称和图标：蓝绿色 */
+.type-decorator .node-title,
+.type-decorator .node-icon {
   fill: #4ecdc4;
+}
+/* Subtree toggle button */
+.subtree-toggle {
+  cursor: pointer;
+}
+.toggle-btn-bg {
+  fill: var(--bg-tertiary, #1f1f2e);
+  stroke: var(--border-light, #52525b);
+  stroke-width: 1;
+  transition: all 0.2s;
+}
+.subtree-toggle:hover .toggle-btn-bg {
+  fill: var(--connection-color, #4ecdc4);
+  stroke: var(--connection-color, #4ecdc4);
+}
+.toggle-btn-icon-line {
+  stroke: var(--text-primary, #e4e4e7);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+.subtree-toggle:hover .toggle-btn-icon-line {
+  stroke: var(--bg-primary, #2d2d42);
 }
 </style>

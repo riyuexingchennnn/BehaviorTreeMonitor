@@ -187,47 +187,63 @@ export const useTreeStore = defineStore('tree', () => {
   const horizontal = ref(true)
 
   const treeData = ref<TreeNode | null>(null)
-  const nodeStatuses = reactive(new Map<string, string>())
+  const nodeStatuses: Record<string, string> = reactive({})
 
   const stats = computed(() => {
     const r = { idle: 0, running: 0, success: 0, failure: 0 }
-    nodeStatuses.forEach(s => {
+    for (const s of Object.values(nodeStatuses)) {
       const lower = s.toLowerCase()
       if (lower.includes('running')) r.running++
       else if (lower.includes('success')) r.success++
       else if (lower.includes('failure')) r.failure++
       else r.idle++
-    })
+    }
     return r
   })
 
   // XML 解析
-  const behaviorTrees: Record<string, Element> = {}
+  type BehaviorTreeEntry = {
+    id: string
+    fullpath: string
+    element: Element
+  }
+  const behaviorTreesById: Record<string, BehaviorTreeEntry[]> = {}
+  const behaviorTreeEntries: BehaviorTreeEntry[] = []
+  let currentModelTypes: Record<string, string> = {}
 
   function parseTree(xmlString: string) {
     const doc = new DOMParser().parseFromString(xmlString, 'text/xml')
 
     // 从 TreeNodesModel 提取节点类型映射
-    const modelTypes: Record<string, string> = {}
+    currentModelTypes = {}
     doc.querySelectorAll('TreeNodesModel > *').forEach(el => {
       const id = el.getAttribute('ID')
-      if (id) modelTypes[id] = el.tagName
+      if (id) currentModelTypes[id] = el.tagName
     })
 
-    for (const k of Object.keys(behaviorTrees)) delete behaviorTrees[k]
+    for (const k of Object.keys(behaviorTreesById)) delete behaviorTreesById[k]
+    behaviorTreeEntries.length = 0
     doc.querySelectorAll('BehaviorTree').forEach(bt => {
       const id = bt.getAttribute('ID')
-      if (id) behaviorTrees[id] = bt
+      if (!id) return
+      const entry: BehaviorTreeEntry = {
+        id,
+        fullpath: bt.getAttribute('_fullpath') ?? '',
+        element: bt,
+      }
+      behaviorTreeEntries.push(entry)
+      if (!behaviorTreesById[id]) behaviorTreesById[id] = []
+      behaviorTreesById[id].push(entry)
     })
 
     const root = doc.querySelector('root')
     const mainId =
       root?.getAttribute('main_tree_to_execute') ??
       root?.querySelector('BehaviorTree')?.getAttribute('ID')
-    const mainTree = (mainId ? behaviorTrees[mainId] : null) ?? doc.querySelector('BehaviorTree')
+    const mainCandidates = mainId ? (behaviorTreesById[mainId] ?? []) : []
+    mainCandidates.sort((a, b) => a.fullpath.length - b.fullpath.length)
+    const mainTree = mainCandidates[0]?.element ?? doc.querySelector('BehaviorTree')
     if (!mainTree) return
-
-    nodeStatuses.clear()
 
     function parseNode(el: Element, depth: number): TreeNode | null {
       if (el.nodeType !== 1) return null
@@ -247,17 +263,20 @@ export const useTreeStore = defineStore('tree', () => {
       for (const a of Array.from(el.attributes)) attrs[a.name] = a.value
 
       if (tag === 'SubTree' || tag === 'SubTreePlus') {
+        const subtreeId = el.getAttribute('ID') ?? tag
         const node: TreeNode = {
           tag,
-          name: el.getAttribute('ID') ?? tag,
+          name: subtreeId,
           uid,
           type: 'subtree',
           attributes: attrs,
           children: [],
           isSubtreeContainer: true,
+          subtreeId,
+          expanded: false,
           x: 0, y: 0, width: 0, depth, subtreeWidth: 0, subtreeHeight: 0,
         }
-        nodeStatuses.set(uid, 'IDLE')
+        if (!(uid in nodeStatuses)) nodeStatuses[uid] = 'IDLE'
         return node
       }
 
@@ -271,12 +290,12 @@ export const useTreeStore = defineStore('tree', () => {
         tag,
         name: el.getAttribute('name') ?? el.getAttribute('ID') ?? tag,
         uid,
-        type: getNodeType(tag, modelTypes),
+        type: getNodeType(tag, currentModelTypes),
         attributes: attrs,
         children,
         x: 0, y: 0, width: 0, depth, subtreeWidth: 0, subtreeHeight: 0,
       }
-      nodeStatuses.set(uid, 'IDLE')
+      if (!(uid in nodeStatuses)) nodeStatuses[uid] = 'IDLE'
       return node
     }
 
@@ -302,14 +321,147 @@ export const useTreeStore = defineStore('tree', () => {
 
   function updateStatus(data: Record<string, string>) {
     for (const [uid, status] of Object.entries(data)) {
-      nodeStatuses.set(uid, status)
+      nodeStatuses[uid] = status
     }
+  }
+
+  function parseSubtreeChildren(el: Element, depth: number): TreeNode[] {
+    const children: TreeNode[] = []
+    for (const child of Array.from(el.children)) {
+      const parsed = parseSubtreeNode(child, depth)
+      if (parsed) children.push(parsed)
+    }
+    return children
+  }
+
+  function parseSubtreeNode(el: Element, depth: number): TreeNode | null {
+    if (el.nodeType !== 1) return null
+    const tag = el.tagName
+    if (['root', 'TreeNodesModel', 'include'].includes(tag)) return null
+
+    if (tag === 'BehaviorTree') {
+      for (const child of Array.from(el.children)) {
+        const parsed = parseSubtreeNode(child, depth)
+        if (parsed) return parsed
+      }
+      return null
+    }
+
+    const uid = el.getAttribute('_uid') ?? generateUid()
+    const attrs: Record<string, string> = {}
+    for (const a of Array.from(el.attributes)) attrs[a.name] = a.value
+
+    if (tag === 'SubTree' || tag === 'SubTreePlus') {
+      const subtreeId = el.getAttribute('ID') ?? tag
+      const node: TreeNode = {
+        tag,
+        name: subtreeId,
+        uid,
+        type: 'subtree',
+        attributes: attrs,
+        children: [],
+        isSubtreeContainer: true,
+        subtreeId,
+        expanded: false,
+        x: 0, y: 0, width: 0, depth, subtreeWidth: 0, subtreeHeight: 0,
+      }
+      if (!(uid in nodeStatuses)) nodeStatuses[uid] = 'IDLE'
+      return node
+    }
+
+    const children: TreeNode[] = []
+    for (const child of Array.from(el.children)) {
+      const parsed = parseSubtreeNode(child, depth + 1)
+      if (parsed) children.push(parsed)
+    }
+
+    const node: TreeNode = {
+      tag,
+      name: el.getAttribute('name') ?? el.getAttribute('ID') ?? tag,
+      uid,
+      type: getNodeType(tag, currentModelTypes),
+      attributes: attrs,
+      children,
+      x: 0, y: 0, width: 0, depth, subtreeWidth: 0, subtreeHeight: 0,
+    }
+    if (!(uid in nodeStatuses)) nodeStatuses[uid] = 'IDLE'
+    return node
+  }
+
+  function statusScore(status?: string): number {
+    if (!status) return 0
+    const s = status.toLowerCase()
+    if (s.includes('running')) return 5
+    if (s.includes('success') || s.includes('failure')) return 3
+    if (s.includes('idle')) return 1
+    return 0
+  }
+
+  function behaviorTreeScore(btElement: Element): number {
+    let score = 0
+    for (const el of Array.from(btElement.querySelectorAll('*'))) {
+      const uid = el.getAttribute('_uid')
+      if (!uid) continue
+      score += statusScore(nodeStatuses[uid])
+    }
+    return score
+  }
+
+  // Some runtimes expose subtree instances with suffixed IDs (e.g. MyTree::instance).
+  // Prefer the candidate whose node statuses are most active.
+  function resolveSubtreeBehaviorTree(subtreeId: string, subtreePath?: string): Element | null {
+    let candidates = behaviorTreesById[subtreeId] ?? []
+
+    // Fallback: some runtimes may suffix subtree IDs.
+    if (candidates.length === 0) {
+      candidates = behaviorTreeEntries.filter(e =>
+        e.id === subtreeId || e.id.startsWith(`${subtreeId}::`) || e.id.startsWith(`${subtreeId}/`)
+      )
+    }
+
+    if (candidates.length === 0) return null
+    if (candidates.length === 1) return candidates[0].element
+
+    if (subtreePath) {
+      const exactByPath = candidates.find(e => e.fullpath === subtreePath)
+      if (exactByPath) return exactByPath.element
+    }
+
+    let best = candidates[0]
+    let bestScore = behaviorTreeScore(best.element)
+    for (const c of candidates.slice(1)) {
+      const s = behaviorTreeScore(c.element)
+      if (s > bestScore) {
+        best = c
+        bestScore = s
+      }
+    }
+    return best.element
+  }
+
+  function toggleSubtree(node: TreeNode) {
+    if (!node.isSubtreeContainer || !node.subtreeId) return
+
+    if (node.expanded) {
+      // 收起: 保留状态数据，仅清除子节点
+      node.children = []
+      node.expanded = false
+    } else {
+      // 展开: 从 behaviorTrees 解析子节点
+      const subtreePath = node.attributes['_fullpath']
+      const btElement = resolveSubtreeBehaviorTree(node.subtreeId, subtreePath)
+      if (!btElement) return
+      node.children = parseSubtreeChildren(btElement, node.depth + 1)
+      node.expanded = true
+    }
+
+    relayout()
   }
 
   return {
     connected, connecting, host, port, horizontal,
     treeData, nodeStatuses, stats,
-    parseTree, updateStatus, toggleLayout,
+    parseTree, updateStatus, toggleLayout, toggleSubtree,
     NODE_BASE_HEIGHT,
     PORT_HEIGHT,
   }

@@ -83,6 +83,7 @@
                 :node="node"
                 @mouseenter="showTooltip"
                 @mouseleave="hideTooltip"
+                @toggle-subtree="onToggleSubtree"
               />
             </g>
           </g>
@@ -314,6 +315,11 @@ function zoomFit() {
 function onToggleLayout() {
   store.toggleLayout()
   nextTick(() => setTimeout(zoomFit, 50))
+}
+
+function onToggleSubtree(node: TreeNode) {
+  store.toggleSubtree(node)
+  nextTick(() => setTimeout(zoomFit, 100))
 }
 
 // ---- 提示框 ----

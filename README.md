@@ -1,8 +1,8 @@
 # BehaviorTree Monitor
 
-基于 BehaviorTree.CPP Groot2 协议的行为树实时监控工具。
+基于 [BehaviorTree.CPP](https://github.com/BehaviorTree/BehaviorTree.CPP) Groot2 协议的行为树实时监控工具，能展示20个以上的节点状态(包括subtree内部节点)。
 
-## 架构
+## 项目架构
 
 ```
 Python (PySide6 + aiohttp)          Vue 3 + TypeScript
@@ -18,13 +18,13 @@ Python (PySide6 + aiohttp)          Vue 3 + TypeScript
                                   (Groot2Publisher)
 ```
 
-## 预览
+## 项目预览
 
 ![](./sample1.png)
 
 ![](./sample2.png)
 
-## 文件结构
+## 项目结构
 
 ```
 BehaviorTreeMonitor/
@@ -47,7 +47,7 @@ BehaviorTreeMonitor/
 
 ## 开发
 
-### 前提
+### 环境配置
 
 - [uv](https://docs.astral.sh/uv/) (Python 包管理)
 - Node.js 18+ & pnpm
@@ -62,16 +62,17 @@ uv sync
 cd frontend && pnpm install
 ```
 
-### 开发模式运行
+### 开发运行
 
 - 构建前端
 
 ```bash
-cd frontend && pnpm build
+cd frontend
+pnpm build
 ```
 
-
 - 启动应用
+
 ```bash
 uv run python main.py
 ```
@@ -80,7 +81,7 @@ uv run python main.py
 
 ```bash
 # 1. 构建前端
-cd frontend && pnpm install && pnpm build && cd ..
+cd frontend && pnpm install && pnpm build
 
 # 2. PyInstaller 打包
 uv run --group dev pyinstaller --clean --noconfirm bt_monitor.spec
@@ -90,7 +91,7 @@ uv run --group dev pyinstaller --clean --noconfirm bt_monitor.spec
 
 ## 下载运行
 
-如果不想自己构建，可以直接在release页面下载编译的版本。
+如果不想自己构建，可以直接在[release页面](https://github.com/riyuexingchennnn/BehaviorTreeMonitor/releases)下载编译的版本。
 
 注意：ubuntu系统要首先chmod赋予执行权限再点击运行。
 

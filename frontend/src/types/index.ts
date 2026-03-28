@@ -37,6 +37,8 @@ export interface TreeNode {
   attributes: Record<string, string>
   children: TreeNode[]
   isSubtreeContainer?: boolean
+  subtreeId?: string
+  expanded?: boolean
   x: number
   y: number
   width: number
