@@ -299,10 +299,32 @@ export const useTreeStore = defineStore('tree', () => {
       return node
     }
 
-    const parsed = parseNode(mainTree, 0)
-    if (parsed) {
-      layoutTree(parsed, horizontal.value)
-      treeData.value = parsed
+    const rootUid = mainTree.getAttribute('_uid') ?? `_root_${mainId ?? 'main'}`
+    const rootChildren: TreeNode[] = []
+    for (const child of Array.from(mainTree.children)) {
+      const parsed = parseNode(child, 1)
+      if (parsed) rootChildren.push(parsed)
+    }
+
+    const parsedRoot: TreeNode = {
+      tag: 'Root',
+      name: mainId ?? 'Root',
+      uid: rootUid,
+      type: 'root',
+      attributes: { ID: mainId ?? 'Root' },
+      children: rootChildren,
+      x: 0,
+      y: 0,
+      width: 0,
+      depth: 0,
+      subtreeWidth: 0,
+      subtreeHeight: 0,
+    }
+    if (!(rootUid in nodeStatuses)) nodeStatuses[rootUid] = 'IDLE'
+
+    if (rootChildren.length > 0) {
+      layoutTree(parsedRoot, horizontal.value)
+      treeData.value = parsedRoot
     }
   }
 

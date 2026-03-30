@@ -5,6 +5,7 @@ import json
 import os
 import logging
 from typing import Optional, Dict
+from urllib.parse import urlparse
 
 import zmq
 import zmq.asyncio
@@ -30,13 +31,41 @@ class Groot2WebBridge:
         self.connected: bool = False
         self.tree_xml: Optional[str] = None
         self.tree_uuid: Optional[str] = None
+        self.last_error: Optional[str] = None
         self.websockets: set = set()
         self.status_poll_task: Optional[asyncio.Task] = None
         self._lock = asyncio.Lock()
 
+    @staticmethod
+    def normalize_host_port(host: str, port: int) -> tuple[str, int]:
+        """Normalize host/port from user input.
+
+        Host is treated as pure host/IP. We still tolerate accidental
+        scheme/path inputs and only keep the hostname part.
+        """
+        raw = (host or "localhost").strip()
+        if not raw:
+            raw = "localhost"
+
+        try:
+            normalized_port = int(port)
+        except (TypeError, ValueError):
+            normalized_port = 1667
+        normalized_host = raw
+
+        try:
+            parsed = urlparse(raw if "://" in raw else f"//{raw}")
+            if parsed.hostname:
+                normalized_host = parsed.hostname
+        except ValueError:
+            # Keep original values if parsing fails; connect_zmq will report error later.
+            pass
+
+        return normalized_host, normalized_port
+
     async def connect_zmq(self, host: str, port: int) -> bool:
-        self.zmq_host = host
-        self.zmq_port = port
+        self.zmq_host, self.zmq_port = self.normalize_host_port(host, port)
+        self.last_error = None
         try:
             if self.zmq_context is None:
                 self.zmq_context = zmq.asyncio.Context()
@@ -45,8 +74,8 @@ class Groot2WebBridge:
 
             self.zmq_socket = self.zmq_context.socket(zmq.REQ)
             self.zmq_socket.setsockopt(zmq.LINGER, 0)
-            self.zmq_socket.setsockopt(zmq.RCVTIMEO, 3000)
-            self.zmq_socket.setsockopt(zmq.SNDTIMEO, 1000)
+            self.zmq_socket.setsockopt(zmq.RCVTIMEO, 6000)
+            self.zmq_socket.setsockopt(zmq.SNDTIMEO, 3000)
 
             address = f"tcp://{self.zmq_host}:{self.zmq_port}"
             logger.info(f"连接到 ZeroMQ: {address}")
@@ -58,10 +87,12 @@ class Groot2WebBridge:
                 logger.info("成功连接到 BT.CPP 服务器")
                 return True
             self.connected = False
+            self.last_error = f"连接超时或对端未响应: {address}"
             return False
         except Exception as e:
             logger.error(f"连接失败: {e}")
             self.connected = False
+            self.last_error = str(e)
             return False
 
     async def disconnect_zmq(self):
@@ -227,6 +258,7 @@ async def _handle_ws_message(ws: web.WebSocketResponse, data: dict):
             'connected': success,
             'tree_xml': bridge.tree_xml if success else None,
             'tree_uuid': bridge.tree_uuid if success else None,
+            'message': None if success else (bridge.last_error or f"无法连接到 {host}:{port}"),
         })
         if success:
             bridge.start_polling()

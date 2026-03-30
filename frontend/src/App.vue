@@ -136,6 +136,7 @@ import { useWebSocket } from './composables/useWebSocket'
 import type { TreeNode, WsMessage } from './types'
 
 const store = useTreeStore()
+const connectionError = ref('')
 
 // ---- WebSocket ----
 const { connect: wsConnect, send: wsSend, close: wsClose } = useWebSocket(handleMessage)
@@ -145,6 +146,12 @@ function handleMessage(msg: WsMessage) {
     case 'connection_status':
       store.connected = !!msg.connected
       store.connecting = false
+      if (msg.connected) {
+        connectionError.value = ''
+      } else if (msg.message) {
+        connectionError.value = msg.message
+        console.error('连接失败:', msg.message)
+      }
       if (msg.connected && msg.tree_xml) {
         store.parseTree(msg.tree_xml)
         nextTick(() => setTimeout(zoomFit, 100))
@@ -192,6 +199,7 @@ const connectionStatus = computed(() => {
 const statusText = computed(() => {
   if (store.connecting) return '连接中...'
   if (store.connected) return '已连接'
+  if (connectionError.value) return '连接失败'
   return '未连接'
 })
 
