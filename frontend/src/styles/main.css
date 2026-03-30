@@ -79,6 +79,15 @@ html, body {
 .status-indicator.connecting .status-dot { background: var(--status-running); animation: pulse 1s infinite; }
 .status-indicator.disconnected .status-dot { background: var(--status-idle); }
 
+.connection-error {
+  max-width: 280px;
+  color: #ff8f8f;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 
 /* Main */

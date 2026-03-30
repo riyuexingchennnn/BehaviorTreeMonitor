@@ -25,6 +25,7 @@
           <span class="status-dot"></span>
           <span>{{ statusText }}</span>
         </div>
+        <span v-if="connectionError" class="connection-error" :title="connectionError">{{ connectionError }}</span>
       </div>
     </header>
 

@@ -32,6 +32,15 @@ def _get_dist_dir() -> str:
     return os.path.join(base, 'dist')
 
 
+def _get_resource_dir() -> str:
+    """获取资源目录路径（支持 PyInstaller 打包）"""
+    if getattr(sys, 'frozen', False):
+        base = sys._MEIPASS  # type: ignore[attr-defined]
+    else:
+        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base, 'resources')
+
+
 class _ServerThread(threading.Thread):
     """在后台线程运行 aiohttp 服务器"""
 
@@ -74,9 +83,13 @@ class MonitorWindow(QMainWindow):
         self.setWindowTitle("BehaviorTree Monitor")
         self.resize(1400, 900)
 
-        icon_path = os.path.join(os.path.dirname(__file__), '..', 'resources', 'icon.png')
-        if os.path.exists(icon_path):
-            self.setWindowIcon(QIcon(icon_path))
+        resource_dir = _get_resource_dir()
+        icon_ico = os.path.join(resource_dir, 'icon.ico')
+        icon_png = os.path.join(resource_dir, 'icon.png')
+        if os.path.exists(icon_ico):
+            self.setWindowIcon(QIcon(icon_ico))
+        elif os.path.exists(icon_png):
+            self.setWindowIcon(QIcon(icon_png))
 
         self._view = QWebEngineView()
         # 禁用磁盘缓存，确保每次加载最新资源

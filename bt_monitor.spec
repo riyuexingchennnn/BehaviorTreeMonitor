@@ -19,6 +19,8 @@ a = Analysis(
     datas=[
         # 打包前端构建产物
         (os.path.join(ROOT, 'dist'), 'dist'),
+        # 应用资源（图标等）
+        (os.path.join(ROOT, 'resources'), 'resources'),
     ],
     hiddenimports=[
         'aiohttp',
@@ -48,6 +50,7 @@ exe = EXE(
     a.datas,
     [],
     name='BehaviorTreeMonitor',
+    icon=os.path.join(ROOT, 'resources', 'icon.ico'),
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

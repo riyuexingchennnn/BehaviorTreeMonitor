@@ -63,10 +63,32 @@ class Groot2WebBridge:
 
         return normalized_host, normalized_port
 
+    async def _precheck_tcp(self, host: str, port: int) -> Optional[str]:
+        """Quick TCP reachability check for clearer diagnostics."""
+        try:
+            reader, writer = await asyncio.wait_for(asyncio.open_connection(host, port), timeout=2.0)
+            writer.close()
+            await writer.wait_closed()
+            _ = reader
+            return None
+        except TimeoutError:
+            return f"TCP 连接超时: {host}:{port}"
+        except OSError as e:
+            return f"TCP 不可达 {host}:{port} ({e.strerror or str(e)})"
+        except Exception as e:
+            return f"TCP 检测失败 {host}:{port} ({e})"
+
     async def connect_zmq(self, host: str, port: int) -> bool:
         self.zmq_host, self.zmq_port = self.normalize_host_port(host, port)
         self.last_error = None
         try:
+            precheck_error = await self._precheck_tcp(self.zmq_host, self.zmq_port)
+            if precheck_error:
+                self.connected = False
+                self.last_error = precheck_error
+                logger.warning(precheck_error)
+                return False
+
             if self.zmq_context is None:
                 self.zmq_context = zmq.asyncio.Context()
             if self.zmq_socket is not None:
